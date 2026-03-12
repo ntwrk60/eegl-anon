@@ -21,37 +21,41 @@ ROOT_DIR := $(shell dirname $(CURRENT_FILE_PATH))
 ENV := $(ROOT_DIR)/.venv
 ENV_CPU := $(ROOT_DIR)/.venv
 PY := $(ENV)/bin/python
-PY_VERSION := 3.12
+PY_VERSION := 3.13
 PYTHONPATH := $(ROOT_DIR)
 
 .PHONY: deps process-fullerenes run-demo check-cuda env env-cpu \
 	clean distclean docker jupyter marimo voila jupyter-clean \
-	nb-clean streamlit gaston docker-build docker-run
+	nb-clean streamlit gaston docker-build docker-run help
 
-$(ENV):
+help: ## Show available make targets
+	@echo "EEGL Make targets:"
+	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z0-9_.\/%-]+:.*##/ {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+$(ENV): ## Create local Python environment
 	bash scripts/python-env.sh create
 
-check-cuda:
+check-cuda: ## Check CUDA/GPU environment info
 	bash scripts/info.sh
 
-env: $(ENV)
+env: $(ENV) ## Update Python environment
 	bash scripts/python-env.sh update
 
-env-cpu:
+env-cpu: ## Create/update CPU-only Python environment
 	bash scripts/python-env.sh create cpu
 	bash scripts/python-env.sh update cpu
 
-clean:
+clean: ## Remove temporary files and caches
 	rm -rf *~ __pycache__
 
-distclean: clean
+distclean: clean ## Remove temporary files and virtual environment
 	rm -rf $(ENV)
 
-docker-%:
+docker-%: ## Run docker helper command (e.g. make docker-build)
 	$(eval command = $(@:docker-%=%))
 	bash scripts/docker.sh $(command)
 
-jupyter:
+jupyter: ## Launch Jupyter Lab
 	PYTHONPATH=$(ROOT_DIR):$(ROOT_DIR)/apps/gnn_explainer \
 		$(PY) -m jupyter lab \
 		--no-browser \
@@ -63,7 +67,7 @@ jupyter:
 		--ServerApp.allow_remote_access=True \
 		--ServerApp.disable_check_xsrf=True
 
-marimo:
+marimo: ## Launch Marimo lab
 	PYTHONPATH=$(ROOT_DIR):$(ROOT_DIR)/apps/gnn_explainer \
 		$(PY) -m marimo lab \
 		--no-browser \
@@ -75,28 +79,28 @@ marimo:
 		--ServerApp.allow_remote_access=True \
 		--ServerApp.disable_check_xsrf=True
 
-voila:
+voila: ## Launch Voila server
 	PYTHONPATH=$(ROOT_DIR) $(PY) -m voila --no-browser \
 		--port=8866 \
 		--no-browser --autoreload=true
 
-jupyter-clean: nb-clean
+jupyter-clean: nb-clean ## Alias for notebook cleanup
 
-nb-clean notebook-clean:
+nb-clean notebook-clean: ## Clear notebook outputs
 	@bash scripts/notebooks.sh clear-output
 
-streamlit:
+streamlit: ## Launch Streamlit app
 	$(PY) -m streamlit run apps/web/streamlit/app.py
 
-gaston:
+gaston: ## Install third-party Gaston dependency
 	bash scripts/install-3rd-party.sh
 
-deps:
+deps: ## Sync project dependencies
 	uv sync --no-dev
 
-process-fullerenes:
+process-fullerenes: ## Run fullerene processing pipeline
 	uv run -m apps.process_fullerenes
 
-run-demo:
+run-demo: ## Run demo workflow configuration
 	uv run -m workflows.run -c run_configs/dev.yml \
 		--run-defaults=run_configs/run_defaults.yml
