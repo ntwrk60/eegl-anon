@@ -24,37 +24,33 @@ PY := $(ENV)/bin/python
 PY_VERSION := 3.12
 PYTHONPATH := $(ROOT_DIR)
 
+.PHONY: deps process-fullerenes run-demo check-cuda env env-cpu \
+	clean distclean docker jupyter marimo voila jupyter-clean \
+	nb-clean streamlit gaston docker-build docker-run
 
 $(ENV):
 	bash scripts/python-env.sh create
 
-.PHONY: check-cuda
 check-cuda:
 	bash scripts/info.sh
 
-.PHONY: venv
 env: $(ENV)
 	bash scripts/python-env.sh update
 
-.PHONY: venv-cpu
 env-cpu:
 	bash scripts/python-env.sh create cpu
 	bash scripts/python-env.sh update cpu
 
-.PHONY: clean
 clean:
 	rm -rf *~ __pycache__
 
-.PHONY: distclean
 distclean: clean
 	rm -rf $(ENV)
 
-.PHONY: docker
 docker-%:
 	$(eval command = $(@:docker-%=%))
 	bash scripts/docker.sh $(command)
 
-.PHONY: jupyter
 jupyter:
 	PYTHONPATH=$(ROOT_DIR):$(ROOT_DIR)/apps/gnn_explainer \
 		$(PY) -m jupyter lab \
@@ -67,7 +63,6 @@ jupyter:
 		--ServerApp.allow_remote_access=True \
 		--ServerApp.disable_check_xsrf=True
 
-.PHONY: marimo
 marimo:
 	PYTHONPATH=$(ROOT_DIR):$(ROOT_DIR)/apps/gnn_explainer \
 		$(PY) -m marimo lab \
@@ -80,28 +75,21 @@ marimo:
 		--ServerApp.allow_remote_access=True \
 		--ServerApp.disable_check_xsrf=True
 
-.PHONY: voila
 voila:
 	PYTHONPATH=$(ROOT_DIR) $(PY) -m voila --no-browser \
 		--port=8866 \
 		--no-browser --autoreload=true
 
-.PHONY: jupyter-clean
 jupyter-clean: nb-clean
 
-.PHONY: nb-clean notebook-clean
 nb-clean notebook-clean:
 	@bash scripts/notebooks.sh clear-output
 
-.PHONY: streamlit
 streamlit:
 	$(PY) -m streamlit run apps/web/streamlit/app.py
 
-.PHONY: gaston
 gaston:
 	bash scripts/install-3rd-party.sh
-
-.PHONY: deps process-fullerenes run-demo
 
 deps:
 	uv sync --no-dev
