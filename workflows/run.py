@@ -1,5 +1,5 @@
 # EEGL - An Iterative GNN Enhancement Framework
-# Copyright (C) 2025 Harish Naik
+# Copyright (C) 2025 The EEGL Authors
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
