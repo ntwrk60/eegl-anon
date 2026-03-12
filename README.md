@@ -22,6 +22,12 @@ Create or refresh the default environment:
 make env
 ```
 
+To view all available Makefile commands at any time:
+
+```sh
+make help
+```
+
 This runs `uv sync` and creates `.venv/` if needed.
 
 Install the Gaston frequent subgraph miner:
@@ -90,6 +96,7 @@ The default output location is `dataset/pickled/fullerenes`.
 
 | Target | Description |
 |---|---|
+| `help` | List available Makefile targets with short descriptions |
 | `check-cuda` | Print Torch and CUDA environment information |
 | `env` | Create or refresh the default `uv` environment |
 | `env-cpu` | Create or refresh the CPU-oriented environment variant |
