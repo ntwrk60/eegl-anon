@@ -1,233 +1,127 @@
 # Explanation Enhanced Graph Learning (EEGL)
 
-EEGL is an iterative GNN enhancement framework that leverages graph explanations and frequent subgraph mining to progressively improve Graph Neural Network classifiers.
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Requirements](#requirements)
-- [Setup](#setup)
-  - [Option A: Local Environment (Conda/Mamba)](#option-a-local-environment-condamamba)
-  - [Option B: Docker](#option-b-docker)
-- [Third-Party Dependencies](#third-party-dependencies)
-- [Running Experiments](#running-experiments)
-  - [Quick Start](#quick-start)
-  - [Run Configuration Files](#run-configuration-files)
-  - [Available Datasets](#available-datasets)
-- [Project Structure](#project-structure)
-- [Development](#development)
-
----
-
-## Overview
-
-The EEGL pipeline iteratively:
-1. **Trains** a GNN classifier on graph data.
-2. **Explains** predictions using a GNN explainer to extract subgraph masks.
-3. **Annotates** graphs with features derived from frequent subgraph patterns (via the Gaston algorithm).
-
-Each iteration feeds the newly annotated features back into the next training round, gradually enriching the node features with structural explanations.
-
----
+EEGL is an iterative framework that enhances Graph Neural Networks (GNNs) by mining frequent subgraphs from GNN explanations and feeding them back as additional node features.
 
 ## Requirements
 
-- **OS**: Linux (x86_64)
-- **Python**: 3.12
-- **CUDA**: 12.4+ (for GPU-accelerated training; a CPU-only path is also available)
-- **Conda/Mamba** (recommended): [Miniforge](https://github.com/conda-forge/miniforge) or [Micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html)
-- **Docker** (optional): required only for the containerised workflow
+- Python 3.13+
+- [uv](https://docs.astral.sh/uv/) for environment and dependency management
+- `gcc`, `make`, `wget`, and `patch` to build third-party tooling such as [Gaston](https://liacs.leidenuniv.nl/~nijssensgr/gaston/)
+- A CUDA-capable GPU for GPU-backed experiments (optional, but recommended)
+- [Podman](https://podman.io/) or Docker for container-based workflows
 
----
+The repository also includes prebuilt Glasgow Subgraph Solver binaries under `external/` for supported platforms.
 
 ## Setup
 
-### Option A: Local Environment (Conda/Mamba)
+### Local development
 
-1. **Clone the repository**
+Create or refresh the default environment:
 
-   ```bash
-   git clone <repo-url> eegl-anon
-   cd eegl-anon
-   ```
-
-2. **Create the Conda environment** (GPU, requires CUDA 12.4)
-
-   ```bash
-   make env
-   ```
-
-   For a CPU-only environment:
-
-   ```bash
-   make env-cpu
-   ```
-
-   Both commands use `mamba` to create a virtual environment at `.venv/` from the `environment.yml` (or `environment-cpu.yml`) file located in `cr/default/`.
-
-3. **Verify CUDA availability** (optional)
-
-   ```bash
-   make check-cuda
-   ```
-
-### Option B: Docker
-
-Pre-built container recipes are located under `cr/`. The default image targets NVIDIA CUDA 12.6.
-
-```bash
-# Build the default image
-make docker-build
-
-# Run a container
-make docker-run
+```sh
+make env
 ```
 
-The container exposes the experiment entry-point via `cr/default/entrypoint.sh`. Pass the path to a run-config YAML as the `INPUT_FILE` environment variable:
+To view all available Makefile commands at any time:
 
-```bash
-docker run -e INPUT_FILE=run_configs/c60.yml <image>
+```sh
+make help
 ```
 
----
+This runs `uv sync` and creates `.venv/` if needed.
 
-## Third-Party Dependencies
+Install the Gaston frequent subgraph miner:
 
-EEGL relies on the **Gaston** frequent subgraph miner and the **Glasgow Subgraph Solver**.
-
-### Gaston (required for the `annotate` step)
-
-```bash
+```sh
 make gaston
 ```
 
-This downloads, patches, and installs the `gaston` binary to `/usr/local/bin/`. Alternatively, set the environment variable `GASTON_BIN_PATH` to point to a pre-built binary.
+If you only need runtime dependencies, install the non-development set with:
 
-### Glasgow Subgraph Solver
-
-Built automatically inside Docker (see `cr/default/Dockerfile`). For a local build, set:
-
-```bash
-export EEGL_SOLVER_PATH=/path/to/glasgow_subgraph_solver
+```sh
+make deps
 ```
 
----
+### Dev container (VS Code)
 
-## Running Experiments
+Open the repository in VS Code and select **Reopen in Container** when prompted. The dev container builds from `.devcontainer/Dockerfile` and runs `uv sync` automatically.
 
-### Quick Start
+### Manual container workflow
 
-```bash
-PYTHONPATH=. .venv/bin/python -m workflows.run \
-    -c run_configs/dev.yml \
-    --run-defaults run_configs/run_defaults.yml
+```sh
+make docker-build
+make docker-run
+make docker-login
 ```
 
-**Arguments:**
+The container helper uses Podman when available and falls back to Docker otherwise.
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `-c`, `--config` | Path to the experiment run-config YAML | *(required)* |
-| `--run-defaults` | Path to the shared defaults YAML | `run_configs/run_defaults.yml` |
-| `--log-level` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, …) | `INFO` |
+## Quick start
 
-### Run Configuration Files
+Run the bundled demo workflow:
 
-All experiment configs live in `run_configs/`. Each YAML file specifies:
-
-| Key | Description |
-|-----|-------------|
-| `run_id` | Unique identifier for the experiment run (`auto` generates a timestamp-based ID) |
-| `iterations` | List of pipeline iterations to execute (e.g. `[0, 1, 2]`) |
-| `fold` | Cross-validation fold range (`begin` / `end`) |
-| `dataset` | Dataset class and parameters |
-| `steps` | Ordered list of pipeline steps: `train`, `explain`, `annotate` |
-| `hp_tuning` | Hyperparameter tuning settings (Optuna) |
-| `gaston_freq_threshold` | Minimum frequency threshold for the Gaston subgraph miner |
-| `input_data_root` | Root directory for input data (default: `./dataset`) |
-| `output_root` | Root directory for output artefacts (default: `./.output`) |
-
-**Example — single-fold dev run on C60:**
-
-```bash
-PYTHONPATH=. .venv/bin/python -m workflows.run -c run_configs/dev.yml
+```sh
+make run-demo
 ```
 
-**Example — full 5-fold experiment on C60:**
+This launches [workflows/run.py](workflows/run.py) with [run_configs/dev.yml](run_configs/dev.yml) and [run_configs/run_defaults.yml](run_configs/run_defaults.yml).
 
-```bash
-PYTHONPATH=. .venv/bin/python -m workflows.run -c run_configs/c60.yml
+To preprocess fullerene data into pickled graphs:
+
+```sh
+make process-fullerenes
 ```
 
-**Example — logic dataset:**
+The default output location is `dataset/pickled/fullerenes`.
 
-```bash
-PYTHONPATH=. .venv/bin/python -m workflows.run -c run_configs/logic.yml
-```
+## Interactive tools
 
-### Available Datasets
+- `make jupyter` starts JupyterLab on port `8080`
+- `make marimo` starts a Marimo lab server on port `8080`
+- `make voila` starts Voilà on port `8866`
+- `make nb-clean` clears output cells from changed notebooks
 
-Pre-configured run files are provided for the following datasets:
+`make jupyter-clean` and `make notebook-clean` are aliases for `make nb-clean`.
 
-| Config file | Dataset |
-|-------------|---------|
-| `run_configs/c60.yml` | Fullerene C60 |
-| `run_configs/c70.yml` | Fullerene C70 |
-| `run_configs/c180-0.yml` … `c720-0.yml` | Larger fullerene cages (C180 – C720) |
-| `run_configs/c38-c1-3.yml` | Fullerene C38 (C1-3 isomers) |
-| `run_configs/logic.yml` | Synthetic logic dataset |
-| `run_configs/g180.yml` … `g600.yml` | Random graph families |
-| `run_configs/builtin_datasets.yml` | PyG built-in datasets (WebKB, WikiCS, Airports, etc.) |
-| `run_configs/dev.yml` | Minimal development / debugging run |
+## Environment variables
 
----
+| Variable | Description |
+|---|---|
+| `EEGL_SOLVER_PATH` | Override the path to the Glasgow subgraph solver binary |
+| `GASTON_BIN_PATH` | Override the path to the Gaston executable |
+| `PYTHONPATH` | Should include the repository root for direct module execution |
+| `LD_LIBRARY_PATH` | Used by the Glasgow solver to find libraries in `.deps/lib` |
 
-## Project Structure
+## Makefile targets
 
-```
-eegl-anon/
-├── egr/                  # Core library (GNN models, explainer, classifier, utils)
-│   ├── models.py         # GCN model definition
-│   ├── classifier.py     # Training logic
-│   ├── explainer.py      # GNN explanation
-│   ├── fsg/              # Frequent subgraph mining & feature annotation
-│   └── ...
-├── workflows/
-│   ├── run.py            # Main experiment entry-point
-│   ├── tasks.py          # Pipeline step implementations (train / explain / annotate)
-│   └── config.py         # WorkflowConfig dataclass
-├── run_configs/          # Experiment YAML configuration files
-├── apps/                 # Utility scripts (dataset preparation, index creation, etc.)
-├── dataset/              # Input data root
-├── cr/                   # Container recipes (Dockerfiles, environment specs)
-│   └── default/
-│       ├── Dockerfile
-│       └── environment.yml
-├── scripts/              # Helper shell scripts
-├── tests/                # Test suite
-└── Makefile              # Convenience targets
-```
+| Target | Description |
+|---|---|
+| `help` | List available Makefile targets with short descriptions |
+| `check-cuda` | Print Torch and CUDA environment information |
+| `env` | Create or refresh the default `uv` environment |
+| `env-cpu` | Create or refresh the CPU-oriented environment variant |
+| `clean` | Remove editor backups and local `__pycache__` directories |
+| `distclean` | Run `clean` and remove `.venv/` |
+| `docker-build` | Build the development container image |
+| `docker-run` | Build and start the development container |
+| `docker-login` | Open a shell in the running container |
+| `jupyter` | Start JupyterLab on port `8080` |
+| `marimo` | Start Marimo lab on port `8080` |
+| `voila` | Start Voilà on port `8866` |
+| `nb-clean` | Clear output from changed notebooks |
+| `notebook-clean` | Alias for `nb-clean` |
+| `jupyter-clean` | Alias for `nb-clean` |
+| `streamlit` | Run the configured Streamlit app entrypoint (`apps/web/streamlit/app.py`) |
+| `gaston` | Download, build, and install Gaston |
+| `deps` | Install runtime dependencies with `uv sync --no-dev` |
+| `process-fullerenes` | Build pickled fullerene graph datasets |
+| `run-demo` | Run the demo workflow configuration |
 
----
+## Project layout
 
-## Development
-
-### Running Tests
-
-```bash
-PYTHONPATH=. .venv/bin/python -m pytest tests/
-```
-
-### Jupyter / Marimo Notebooks
-
-```bash
-make jupyter   # Launch JupyterLab on port 8080
-make marimo    # Launch Marimo on port 8080
-```
-
-### Cleaning Up
-
-```bash
-make clean       # Remove Python cache files
-make distclean   # Remove the entire .venv environment
-```
+- [egr](egr) contains the main EEGL library code
+- [apps](apps) contains utility entrypoints for data conversion and feature generation
+- [run_configs](run_configs) contains workflow configuration files
+- [workflows](workflows) contains the orchestration code used for experiments
+- [tests](tests) contains the automated test suite
+- [nb](nb) contains notebook-related files and helpers
